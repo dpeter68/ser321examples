@@ -16,6 +16,8 @@ write a response back
 
 package funHttpServer;
 
+import org.json.JSONObject;
+import org.json.JSONArray;
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
@@ -24,6 +26,7 @@ import java.util.HashMap;
 import java.util.Random;
 import java.util.Map;
 import java.util.LinkedHashMap;
+import java.util.Base64;
 import java.nio.charset.Charset;
 
 class WebServer {
@@ -47,7 +50,7 @@ class WebServer {
         sock = server.accept();
         out = sock.getOutputStream();
         in = sock.getInputStream();
-        byte[] response = createResponse(in);
+        byte[] response = createResponse(in, out);
         out.write(response);
         out.flush();
         in.close();
@@ -89,7 +92,7 @@ class WebServer {
    * @param inStream HTTP input stream from socket
    * @return the byte encoded HTTP response
    */
-  public byte[] createResponse(InputStream inStream) {
+  public byte[] createResponse(InputStream inStream, OutputStream outStream) {
 
     byte[] response = null;
     BufferedReader in = null;
@@ -178,6 +181,102 @@ class WebServer {
           builder.append("Content-Type: text/html; charset=utf-8\n");
           builder.append("\n");
           builder.append(new String(readFileInBytes(file)));
+
+        } else if (request.contains("cat?")) {
+          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+          // extract path parameters
+          try {
+          if (request.replace("cat?", "").trim().isEmpty()) {
+            throw new IllegalStateException("Please put a argument for cat\n");
+          }
+          String queryString = request.replace("cat?", "").trim();
+          query_pairs = splitQuery(request.replace("cat?", ""));
+
+
+            if (query_pairs.containsKey("kitty")) {
+              if (query_pairs.get("kitty").equals("1")) {
+                String page = new String(readFileInBytes(new File("images/kitty1.html")));
+                // performs a template replacement in the page
+
+                // Generate response
+                builder.append("HTTP/1.1 200 OK\n");
+                builder.append("Content-Type: text/html; charset=utf-8\n");
+                builder.append("\n");
+                builder.append(page);
+              } else if (query_pairs.get("kitty").equals("2")) {
+                String page = new String(readFileInBytes(new File("images/kitty2.html")));
+                // performs a template replacement in the page
+
+                // Generate response
+                builder.append("HTTP/1.1 200 OK\n");
+                builder.append("Content-Type: text/html; charset=utf-8\n");
+                builder.append("\n");
+                builder.append(page);
+              } else {
+                throw new IllegalArgumentException("Does not have a number in the correct range of pictures. Please try either 1 or 2.");
+              }
+            } else {
+              throw new IllegalArgumentException("Does not contain correct query argument. Check if you spelled kitty correctly.\n");
+            }
+          } catch (IllegalArgumentException e){
+              builder.append("HTTP/1.1 400 Bad Request\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("Error code 400: " + e.getMessage());
+          } catch (IllegalStateException e) {
+              builder.append("HTTP/1.1 406 Wrong Values: No default\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("Error code 406: " + e.getMessage());
+          }
+        } else if (request.contains("ft_to_cm?")) {
+
+          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+          int cm = 0;
+          // extract path parameters
+          try {
+          if (request.replace("ft_to_cm??", "").trim().isEmpty()) {
+            throw new IllegalStateException("Please put a argument for ft_to_cm\n");
+          }
+          String queryString = request.replace("ft_to_cm?", "").trim();
+          query_pairs = splitQuery(request.replace("ft_to_cm?", ""));
+            if (query_pairs.containsKey("ft")) {
+              if (!integerChecker(query_pairs.get("ft"))) {
+                throw new IllegalArgumentException("Does not contain an integer for the argument: ft\n");
+              }
+              Integer foot = Integer.parseInt(query_pairs.get("ft"));
+              foot = foot * 12;
+              System.out.println(foot);
+              if (query_pairs.containsKey("in")) {
+                if (!integerChecker(query_pairs.get("in"))) {
+                  throw new IllegalArgumentException("Does not contain an integer for the argument: in\n");
+                }
+                Integer inches = Integer.parseInt(query_pairs.get("in"));
+                System.out.println(inches);
+                inches = inches + foot;
+                System.out.println(inches);
+                double centimeters = inches * 2.54;
+                builder.append("HTTP/1.1 200 OK\n");
+                builder.append("Content-Type: text/html; charset=utf-8\n");
+                builder.append("\n");
+                builder.append("This height in centimeters is " + centimeters);
+              } else {
+                 throw new IllegalArgumentException("Does not contain correct query argument. Check if you inputted in correctly.\n");
+              }
+            } else {
+              throw new IllegalArgumentException("Does not contain correct query argument. Check if you inputted ft correctly.\n");
+            }
+          } catch (IllegalArgumentException e){
+              builder.append("HTTP/1.1 400 Bad Request\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("Error code 400: " + e.getMessage());
+          } catch (IllegalStateException e) {
+              builder.append("HTTP/1.1 406 Wrong Values: No default\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("Error code 406: " + e.getMessage());
+          }
 
         } else if (request.contains("file/")) {
           // tries to find the specified file and shows it or shows an error
@@ -275,13 +374,33 @@ class WebServer {
 
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
           query_pairs = splitQuery(request.replace("github?", ""));
-          String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
-          System.out.println(json);
+          try {
+            String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
 
-          builder.append("HTTP/1.1 200 OK\n");
-          builder.append("Content-Type: text/html; charset=utf-8\n");
-          builder.append("\n");
-          builder.append("Check the todos mentioned in the Java source file");
+          // Make a JSONArray from the json string
+          JSONArray jsonArray = new JSONArray(json);
+            builder.append("HTTP/1.1 200 OK\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+          // Loop to go through and print out all of the information from the JsonArray
+          for (int i = 0; i < jsonArray.length(); i++) {
+            JSONObject repository = jsonArray.getJSONObject(i);
+            String repoName = repository.getString("name");
+            String fullName = repository.getString("full_name");
+            long id = repository.getLong("id");
+            JSONObject owner = repository.getJSONObject("owner");
+            String login = owner.getString("login");
+            builder.append("Full Name: " + fullName + "\n\n");
+            builder.append("ID: " + id + "\n\n");
+            builder.append("Login: " + login + "\n\n");
+          }
+          } catch (Exception e) {
+                builder.append("HTTP/1.1 400 Bad Request\n");
+                builder.append("Content-Type: text/html; charset=utf-8\n");
+                builder.append("\n");
+                builder.append("An exception was thrown: " + e.getMessage() + "\n");
+          }
+
           // TODO: Parse the JSON returned by your fetch and create an appropriate
           // response based on what the assignment document asks for
 
@@ -406,6 +525,7 @@ class WebServer {
       in.close();
     } catch (Exception ex) {
       System.out.println("Exception in url request:" + ex.getMessage());
+      throw new IllegalArgumentException("Query must point to a github repo\n");
     }
     return sb.toString();
   }
