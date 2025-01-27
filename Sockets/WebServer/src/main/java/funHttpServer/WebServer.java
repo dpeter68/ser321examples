@@ -235,7 +235,7 @@ class WebServer {
           int cm = 0;
           // extract path parameters
           try {
-          if (request.replace("ft_to_cm??", "").trim().isEmpty()) {
+          if (request.replace("ft_to_cm?", "").trim().isEmpty()) {
             throw new IllegalStateException("Please put a argument for ft_to_cm\n");
           }
           String queryString = request.replace("ft_to_cm?", "").trim();
