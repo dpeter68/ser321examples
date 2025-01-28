@@ -192,7 +192,6 @@ class WebServer {
           String queryString = request.replace("cat?", "").trim();
           query_pairs = splitQuery(request.replace("cat?", ""));
 
-
             if (query_pairs.containsKey("kitty")) {
               if (query_pairs.get("kitty").equals("1")) {
                 String page = new String(readFileInBytes(new File("images/kitty1.html")));
@@ -228,6 +227,11 @@ class WebServer {
               builder.append("Content-Type: text/html; charset=utf-8\n");
               builder.append("\n");
               builder.append("Error code 406: " + e.getMessage());
+          } catch (StringIndexOutOfBoundsException e) {
+              builder.append("HTTP/1.1 406 Wrong Values: No default\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("Error code 406: Please input a value after kitty\n");
           }
         } else if (request.contains("ft_to_cm?")) {
 
